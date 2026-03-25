@@ -6,20 +6,27 @@ pydantic>=2.0
 pydantic-settings>=2.0
 
 # ── AI — Face Recognition ──────────────────────────────
-deepface>=0.0.93
+deepface>=0.0.93                    # GhostFaceNet recognition + emotion
 opencv-python-headless>=4.10.0
+mediapipe>=0.10.0                   # Fast face detection (<10ms)
 tf-keras                            # DeepFace dependency (lightweight)
 
-# ── AI — LLM ───────────────────────────────────────────
-anthropic>=0.40.0
+# ── AI — LLM Providers ─────────────────────────────────
+# openai client talks to Claude (via Anthropic), GPT-4o, AND Ollama
+anthropic>=0.40.0                   # Claude Sonnet (conversation)
+openai>=1.30.0                      # GPT-4o (puzzle gen) + Ollama (extraction)
 
 # ── AI — Jailbreak Detection ──────────────────────────
-onnxruntime>=1.17.0
+onnxruntime>=1.17.0                 # DeBERTa + DistilBERT local inference
 transformers>=4.40.0
 
-# ── AI — Embeddings & Memory ──────────────────────────
-chromadb>=0.5.0
-sentence-transformers>=3.0.0
+# ── AI — Embeddings ────────────────────────────────────
+sentence-transformers>=3.0.0        # BGE-M3 (1024-dim, local)
+
+# ── Vector Database ────────────────────────────────────
+pymilvus>=2.4.0                     # Milvus Lite (local file, no server)
+
+# ── Knowledge Graph ────────────────────────────────────
 networkx>=3.3
 
 # ── Data & Security ────────────────────────────────────

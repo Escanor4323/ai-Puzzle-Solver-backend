@@ -1,10 +1,18 @@
-"""Face detection, recognition, and anti-spoofing engine.
+"""Face detection and recognition engine.
 
-Wraps DeepFace with the ArcFace model and RetinaFace detector backend.
-Manages per-player multi-embedding storage, centroid computation, and
-liveness checks.  Camera frames arrive as base64-encoded JPEG from the
-frontend and are processed in a ``ProcessPoolExecutor`` to avoid
-blocking the async event loop.
+Uses **MediaPipe** for fast face detection (<10ms per frame) and
+**GhostFaceNet via DeepFace** for 512-dim face embedding generation
+and recognition (~50ms).
+
+Pipeline:
+1. MediaPipe detects face bounding boxes in the camera frame.
+2. GhostFaceNet generates a 512-dim face embedding from the crop.
+3. Cosine distance comparison against stored player embeddings.
+4. DeepFace built-in anti-spoofing for liveness detection.
+5. DeepFace built-in emotion analysis (free with the pipeline).
+
+Face data never leaves the machine — embeddings are stored locally
+in the encrypted SQLCipher database.
 """
 
 from __future__ import annotations
@@ -13,15 +21,29 @@ from typing import Any
 
 
 class FaceEngine:
-    """Manages face detection, recognition, and enrollment."""
+    """Manages face detection, recognition, and enrollment.
+
+    Detection: MediaPipe (runs every frame, <10ms).
+    Recognition: GhostFaceNet via DeepFace (~50ms).
+    Emotion: DeepFace built-in (~30ms, included in pipeline).
+    """
 
     def __init__(self) -> None:
-        pass
+        self._detector = None       # MediaPipe face detector
+        self._recognizer = None     # DeepFace (GhostFaceNet)
 
     async def process_frame(
         self, frame_b64: str
     ) -> dict[str, Any]:
-        """Decode a base64 frame, detect faces, and attempt recognition.
+        """Detect faces and attempt recognition.
+
+        Pipeline:
+        1. Decode base64 JPEG frame.
+        2. MediaPipe face detection for bounding boxes.
+        3. GhostFaceNet embedding on the dominant face crop.
+        4. Cosine distance comparison against stored embeddings.
+        5. Anti-spoofing check via DeepFace.
+        6. Emotion extraction via DeepFace.
 
         Parameters
         ----------
@@ -31,15 +53,15 @@ class FaceEngine:
         Returns
         -------
         dict[str, Any]
-            Detection result with player ID (if matched), confidence,
-            emotion data, and anti-spoofing verdict.
+            Detection result with player ID (if matched),
+            confidence, emotion, and anti-spoofing verdict.
         """
         pass
 
     async def enroll_player(
         self, player_id: str, frames: list[str]
     ) -> None:
-        """Capture 3-5 embeddings from different angles for a new player.
+        """Capture 3-5 embeddings from different angles.
 
         Parameters
         ----------
@@ -53,7 +75,7 @@ class FaceEngine:
     def load_player_embeddings(
         self, player_id: str
     ) -> list[list[float]]:
-        """Load stored embeddings for a player from the database.
+        """Load stored 512-dim face embeddings for a player.
 
         Parameters
         ----------
@@ -63,7 +85,7 @@ class FaceEngine:
         Returns
         -------
         list[list[float]]
-            List of 512-dimensional ArcFace embeddings.
+            List of 512-dimensional GhostFaceNet embeddings.
         """
         pass
 

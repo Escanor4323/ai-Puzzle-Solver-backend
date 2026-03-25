@@ -47,6 +47,29 @@ class EmotionalState(StrEnum):
     AMUSED = "amused"
 
 
+class IntentType(StrEnum):
+    """Player message intent categories.
+
+    Classified by rules-based logic inside the LLM orchestrator.
+    Determines which processing pipeline to trigger.
+    """
+
+    PUZZLE_ACTION = "puzzle_action"
+    HINT_REQUEST = "hint_request"
+    CHAT = "chat"
+    JAILBREAK_ATTEMPT = "jailbreak_attempt"
+    MIXED = "mixed"
+
+
+class ObservationCategory(StrEnum):
+    """Categories for player observations stored in Milvus."""
+
+    STRATEGY = "strategy"
+    REACTION = "reaction"
+    PREFERENCE = "preference"
+    PERSONALITY = "personality"
+
+
 class WSMessageType(StrEnum):
     """WebSocket message types for the multiplexed protocol."""
 
@@ -177,6 +200,16 @@ class SessionData(BaseModel):
 # ── AI Models ───────────────────────────────────────────────────
 
 
+class IntentResult(BaseModel):
+    """Result of rules-based intent classification."""
+
+    intent: IntentType
+    confidence: float = 1.0
+    matched_keywords: list[str] = Field(
+        default_factory=list
+    )
+
+
 class FaceDetectionResult(BaseModel):
     """Result from a face-detection / recognition pass."""
 
@@ -195,6 +228,7 @@ class JailbreakResult(BaseModel):
     category: JailbreakCategory = JailbreakCategory.OTHER
     severity: float = 0.0
     classifier_score: float = 0.0
+    similarity_score: float = 0.0
     action: str = "allow"
     playful_response: str | None = None
 
@@ -215,6 +249,57 @@ class ConversationExtraction(BaseModel):
     topics_discussed: list[str] = Field(
         default_factory=list
     )
+
+
+# ── Milvus Collection Models ───────────────────────────────────
+# These mirror the Milvus collection schemas for type-safe
+# Python-side manipulation before insert / after retrieval.
+
+
+class ConversationMemory(BaseModel):
+    """A stored conversation chunk in Milvus."""
+
+    player_id: str
+    text: str
+    timestamp: int  # unix timestamp
+    session_id: str = ""
+    importance: float = 0.5
+    topic: str = ""
+
+
+class PlayerObservation(BaseModel):
+    """A player observation (strategy, reaction, preference, etc.)."""
+
+    player_id: str
+    description: str
+    category: ObservationCategory
+    context: str = ""
+    valence: float = 0.0  # -1.0 (negative) to 1.0 (positive)
+    frequency: int = 1
+    first_seen: int = 0  # unix timestamp
+    last_seen: int = 0
+
+
+class JailbreakPattern(BaseModel):
+    """A stored jailbreak attack pattern in Milvus."""
+
+    player_id: str
+    input_text: str
+    category: JailbreakCategory
+    severity: float = 0.0
+    timestamp: int = 0
+
+
+class PuzzleTemplate(BaseModel):
+    """A generated puzzle stored for reuse / deduplication."""
+
+    puzzle_type: PuzzleType
+    prompt: str
+    solution: str = ""
+    difficulty: int = 1200
+    times_used: int = 0
+    avg_solve_time: float = 0.0
+    success_rate: float = 0.0
 
 
 # ── WebSocket Models ────────────────────────────────────────────

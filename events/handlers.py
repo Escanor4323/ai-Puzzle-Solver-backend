@@ -1,7 +1,20 @@
 """Event handler registration for the PuzzleMind event bus.
 
-Wires module-level handlers to the central event bus.  Each handler
-responds to a specific event and delegates to the appropriate manager.
+Wires module-level handlers to the central event bus.  The handler
+registrations below reflect the parallel RAG pipeline flow:
+
+Player message arrives
+  ├─→ [parallel] DeBERTa jailbreak (8ms) + DistilBERT sentiment (5ms)
+  │              + Milvus similarity pre-check (10ms)
+  ├─→ Rules-based intent classification (in orchestrator)
+  ├─→ [parallel] Milvus: retrieve memories + observations (30ms)
+  ├─→ Build system prompt with RAG context
+  └─→ Claude Sonnet: stream response (800ms first token)
+
+Background (after response):
+  ├─→ Qwen 3 8B: extract facts from last 5 turns (~2s)
+  ├─→ Embed + store in Milvus collections
+  └─→ Apply Ebbinghaus decay to old memories
 """
 
 from __future__ import annotations
@@ -23,6 +36,11 @@ def register_all_handlers(bus: "EventBus") -> None:
     bus : EventBus
         The application event bus instance.
     """
+    # ── Pre-processing (parallel on every message) ──────
+    # bus.on("chat:message", jailbreak_detector.check_input)
+    # bus.on("chat:message", emotion_analyzer.analyze_text)
+    # bus.on("chat:message", jailbreak_detector.similarity_precheck)
+
     # ── Face Engine Events ──────────────────────────────
     # bus.on("camera:frame", face_engine.process_frame)
 
@@ -33,21 +51,25 @@ def register_all_handlers(bus: "EventBus") -> None:
 
     # ── LLM Orchestrator Events ─────────────────────────
     # bus.on("chat:message", llm_orchestrator.on_message)
-    # bus.on("session:started", llm_orchestrator.on_session)
-    # bus.on("game:state_change", llm_orchestrator.on_state)
+    #   1. classify_intent() — rules-based, internal
+    #   2. memory_manager.build_context() — Milvus RAG
+    #   3. build_system_prompt() — inject RAG context
+    #   4. stream_response() — Claude Sonnet
 
-    # ── Memory Manager Events ──────────────────────────
-    # bus.on("llm:complete", memory_manager.on_response)
+    # ── Memory Manager Events (background, post-response) ─
+    # bus.on("llm:complete", memory_manager.record_turn)
+    # bus.on("llm:complete", memory_manager.extract_and_store)
     # bus.on("session:ended", memory_manager.on_session_end)
+    # bus.on("session:ended", memory_manager.apply_forgetting)
 
     # ── Game Engine Events ─────────────────────────────
     # bus.on("chat:message", game_engine.on_player_action)
     # bus.on("session:started", game_engine.on_session)
 
+    # ── Puzzle Generation (GPT-4o) ─────────────────────
+    # bus.on("game:needs_puzzle", llm_orchestrator.generate_puzzle_json)
+
     # ── Elo System Events ──────────────────────────────
     # bus.on("game:puzzle_complete", elo_system.on_complete)
-
-    # ── Jailbreak Detector Events ──────────────────────
-    # bus.on("chat:message", jailbreak_detector.on_message)
 
     pass  # Wiring happens during Phase 2
