@@ -1,0 +1,1 @@
+"""PuzzleMind test suite."""

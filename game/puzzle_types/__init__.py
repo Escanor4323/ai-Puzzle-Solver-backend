@@ -1,0 +1,1 @@
+"""PuzzleMind puzzle type implementations."""
