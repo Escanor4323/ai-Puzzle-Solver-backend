@@ -48,7 +48,7 @@ RUN pip install --no-cache-dir \
         pydantic-settings>=2.0 \
         anthropic>=0.80.0 \
         openai>=1.50.0 \
-        "pymilvus[milvus_lite]>=2.4.0" \
+        "pymilvus[milvus_lite]>=2.4.0,<2.5.0" \
         networkx>=3.3 \
         keyring>=25.0.0 \
         cryptography>=43.0.0 \
