@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .dockerignore — AI Puzzle Solver Backend
+# Keep the build context lean: exclude everything not needed at runtime.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Root-level sibling directories (never part of this build) ────────────────
+../ai-Puzzle-Solver-frontend/
+../ai-Puzzle-Solver-frontend
+
+# ── Tarballs (source archives, not needed at runtime) ────────────────────────
+../*.tar
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# ── Audio & Markdown files at the root ───────────────────────────────────────
+../*.mp3
+../*.md
+*.mp3
+*.md
+
+# ── Version control ──────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ── Python cache & compiled artifacts ────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Pytest / test artifacts ───────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+tests/
+test_*.py
+*_test.py
+
+# ── Local / dev environment ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Ruff / linter cache ───────────────────────────────────────────────────────
+.ruff_cache/
+
+# ── IDE and OS artifacts ──────────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+
+# ── Local database files (runtime state, not shipped in image) ───────────────
+*.db
+*.db-shm
+*.db-wal
+*.db.lock
+milvus_data.db
+
+# ── Model weight caches (downloaded at first run, not baked in) ──────────────
+.deepface/
+**/.deepface/
+
+# ── Build scripts (not needed in container) ───────────────────────────────────
+build_scripts/
+
+# ── TTS test script (dev-only) ────────────────────────────────────────────────
+tts_chat_test.py

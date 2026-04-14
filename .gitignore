@@ -18,8 +18,10 @@ env/
 
 # ── Runtime Data ───────────────────────────────────────
 *.db
+*.db.lock
 data/chroma/
 data/knowledge/
+data/players/
 
 # ── IDE ────────────────────────────────────────────────
 .vscode/
