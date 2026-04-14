@@ -60,19 +60,19 @@ RUN pip install --no-cache-dir \
         httpx>=0.27.0
 
 # ── Layer 7: Pre-bake CV face models from GitHub Release ─────────────────────
-# Downloads at build time so there is zero cold-start model download at runtime.
+# Stored under /opt (not /tmp) so Docker does NOT overlay them at runtime.
 # Source: https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/tag/models-v1
-ENV DEEPFACE_HOME=/tmp/deepface_cache
-RUN mkdir -p /tmp/deepface_cache/weights && \
+ENV DEEPFACE_HOME=/opt/deepface_cache
+RUN mkdir -p /opt/deepface_cache/weights && \
     BASE="https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/download/models-v1" && \
     curl -fsSL "${BASE}/ghostfacenet_v1.h5" \
-         -o /tmp/deepface_cache/weights/ghostfacenet_v1.h5 && \
+         -o /opt/deepface_cache/weights/ghostfacenet_v1.h5 && \
     curl -fsSL "${BASE}/facial_expression_model_weights.h5" \
-         -o /tmp/deepface_cache/weights/facial_expression_model_weights.h5 && \
+         -o /opt/deepface_cache/weights/facial_expression_model_weights.h5 && \
     curl -fsSL "${BASE}/2.7_80x80_MiniFASNetV2.pth" \
-         -o "/tmp/deepface_cache/weights/2.7_80x80_MiniFASNetV2.pth" && \
+         -o "/opt/deepface_cache/weights/2.7_80x80_MiniFASNetV2.pth" && \
     curl -fsSL "${BASE}/4_0_0_80x80_MiniFASNetV1SE.pth" \
-         -o "/tmp/deepface_cache/weights/4_0_0_80x80_MiniFASNetV1SE.pth"
+         -o "/opt/deepface_cache/weights/4_0_0_80x80_MiniFASNetV1SE.pth"
 
 # ── OpenShift restricted-SCC compliance ──────────────────────────────────────
 # OpenShift runs containers with an arbitrary UID but always GID 0 (root group).
@@ -81,14 +81,15 @@ RUN mkdir -p /tmp/deepface_cache/weights && \
 RUN groupadd -g 1001 appgroup \
     && useradd -u 1001 -g appgroup -M -s /sbin/nologin appuser \
     && mkdir -p /app /tmp/hf_cache /tmp/torch_cache \
-    && chown -R 1001:0 /app /tmp/deepface_cache /tmp/hf_cache /tmp/torch_cache \
-    && chmod -R g=u /app /tmp/deepface_cache /tmp/hf_cache /tmp/torch_cache
+    && chown -R 1001:0 /app /opt/deepface_cache /tmp/hf_cache /tmp/torch_cache \
+    && chmod -R g=u /app /opt/deepface_cache /tmp/hf_cache /tmp/torch_cache
 
 # ── Application source ────────────────────────────────────────────────────────
 COPY --chown=1001:0 . .
 
-# ── Model cache redirects (writable by any UID — OpenShift arbitrary UID safe) ─
-# DEEPFACE_HOME already set above for the model pre-bake step
+# ── Runtime cache redirects ───────────────────────────────────────────────────
+# DEEPFACE_HOME=/opt/deepface_cache — set above, models are baked in at /opt
+# HF/Torch caches go to /tmp (writable, ephemeral is fine for these)
 ENV HF_HOME=/tmp/hf_cache \
     TORCH_HOME=/tmp/torch_cache \
     TRANSFORMERS_CACHE=/tmp/hf_cache \
