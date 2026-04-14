@@ -18,8 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── Layer 1: PyTorch (sentence-transformers pulls it anyway; pin CPU wheel) ──
 # Install CPU-only torch to avoid ~1 GB of CUDA libraries in the image
+# torch>=2.4.0 required by sentence-transformers>=3.0 and transformers>=4.40
 RUN pip install --no-cache-dir \
-        torch --index-url https://download.pytorch.org/whl/cpu
+        "torch>=2.4.0" --index-url https://download.pytorch.org/whl/cpu
 
 # ── Layer 2: Sentence-transformers + HuggingFace stack ───────────────────────
 RUN pip install --no-cache-dir \
