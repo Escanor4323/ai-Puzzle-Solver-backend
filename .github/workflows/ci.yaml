@@ -96,12 +96,18 @@ jobs:
           grep "image:" gitops/${{ env.GITOPS_MANIFEST }}
 
       - name: Commit and push to GitOps repo
+        env:
+          GITOPS_PAT: ${{ secrets.GITOPS_PAT }}
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
           cd gitops
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Embed token in remote URL so push authenticates correctly
+          git remote set-url origin \
+            "https://x-access-token:${GITOPS_PAT}@github.com/${{ env.GITOPS_REPO }}.git"
 
           git add ${{ env.GITOPS_MANIFEST }}
 
