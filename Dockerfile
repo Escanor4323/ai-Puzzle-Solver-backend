@@ -57,23 +57,25 @@ RUN pip install --no-cache-dir \
         numpy>=1.26.0 \
         python-dotenv>=1.0.0 \
         edge-tts>=6.0.0 \
+        fer>=22.5.1 \
         pytest>=8.0.0 \
         httpx>=0.27.0
 
 # ── Layer 7: Pre-bake CV face models from GitHub Release ─────────────────────
+# DeepFace resolves weights as {DEEPFACE_HOME}/.deepface/weights/
 # Stored under /opt (not /tmp) so Docker does NOT overlay them at runtime.
 # Source: https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/tag/models-v1
 ENV DEEPFACE_HOME=/opt/deepface_cache
-RUN mkdir -p /opt/deepface_cache/weights && \
+RUN mkdir -p /opt/deepface_cache/.deepface/weights && \
     BASE="https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/download/models-v1" && \
     curl -fsSL "${BASE}/ghostfacenet_v1.h5" \
-         -o /opt/deepface_cache/weights/ghostfacenet_v1.h5 && \
+         -o /opt/deepface_cache/.deepface/weights/ghostfacenet_v1.h5 && \
     curl -fsSL "${BASE}/facial_expression_model_weights.h5" \
-         -o /opt/deepface_cache/weights/facial_expression_model_weights.h5 && \
+         -o /opt/deepface_cache/.deepface/weights/facial_expression_model_weights.h5 && \
     curl -fsSL "${BASE}/2.7_80x80_MiniFASNetV2.pth" \
-         -o "/opt/deepface_cache/weights/2.7_80x80_MiniFASNetV2.pth" && \
+         -o "/opt/deepface_cache/.deepface/weights/2.7_80x80_MiniFASNetV2.pth" && \
     curl -fsSL "${BASE}/4_0_0_80x80_MiniFASNetV1SE.pth" \
-         -o "/opt/deepface_cache/weights/4_0_0_80x80_MiniFASNetV1SE.pth"
+         -o "/opt/deepface_cache/.deepface/weights/4_0_0_80x80_MiniFASNetV1SE.pth"
 
 # ── OpenShift restricted-SCC compliance ──────────────────────────────────────
 # OpenShift runs containers with an arbitrary UID but always GID 0 (root group).
