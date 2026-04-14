@@ -59,13 +59,28 @@ RUN pip install --no-cache-dir \
         pytest>=8.0.0 \
         httpx>=0.27.0
 
+# ── Layer 7: Pre-bake CV face models from GitHub Release ─────────────────────
+# Downloads at build time so there is zero cold-start model download at runtime.
+# Source: https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/tag/models-v1
+ENV DEEPFACE_HOME=/tmp/deepface_cache
+RUN mkdir -p /tmp/deepface_cache/weights && \
+    BASE="https://github.com/Escanor4323/ai-Puzzle-Solver-backend/releases/download/models-v1" && \
+    curl -fsSL "${BASE}/ghostfacenet_v1.h5" \
+         -o /tmp/deepface_cache/weights/ghostfacenet_v1.h5 && \
+    curl -fsSL "${BASE}/facial_expression_model_weights.h5" \
+         -o /tmp/deepface_cache/weights/facial_expression_model_weights.h5 && \
+    curl -fsSL "${BASE}/2.7_80x80_MiniFASNetV2.pth" \
+         -o "/tmp/deepface_cache/weights/2.7_80x80_MiniFASNetV2.pth" && \
+    curl -fsSL "${BASE}/4_0_0_80x80_MiniFASNetV1SE.pth" \
+         -o "/tmp/deepface_cache/weights/4_0_0_80x80_MiniFASNetV1SE.pth"
+
 # ── OpenShift restricted-SCC compliance ──────────────────────────────────────
 # OpenShift runs containers with an arbitrary UID but always GID 0 (root group).
 # Own files as UID 1001 + GID 0, grant group-write so any UID in the project
 # range can still read/write the working directory.
 RUN groupadd -g 1001 appgroup \
     && useradd -u 1001 -g appgroup -M -s /sbin/nologin appuser \
-    && mkdir -p /app /tmp/deepface_cache /tmp/hf_cache /tmp/torch_cache \
+    && mkdir -p /app /tmp/hf_cache /tmp/torch_cache \
     && chown -R 1001:0 /app /tmp/deepface_cache /tmp/hf_cache /tmp/torch_cache \
     && chmod -R g=u /app /tmp/deepface_cache /tmp/hf_cache /tmp/torch_cache
 
@@ -73,8 +88,8 @@ RUN groupadd -g 1001 appgroup \
 COPY --chown=1001:0 . .
 
 # ── Model cache redirects (writable by any UID — OpenShift arbitrary UID safe) ─
-ENV DEEPFACE_HOME=/tmp/deepface_cache \
-    HF_HOME=/tmp/hf_cache \
+# DEEPFACE_HOME already set above for the model pre-bake step
+ENV HF_HOME=/tmp/hf_cache \
     TORCH_HOME=/tmp/torch_cache \
     TRANSFORMERS_CACHE=/tmp/hf_cache \
     SENTENCE_TRANSFORMERS_HOME=/tmp/hf_cache
@@ -84,7 +99,7 @@ USER 1001
 
 EXPOSE 8008
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8008/health')" || exit 1
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8008", "--workers", "1"]
