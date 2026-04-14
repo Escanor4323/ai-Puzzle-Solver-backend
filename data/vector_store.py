@@ -43,18 +43,18 @@ def _conversation_memories_schema() -> CollectionSchema:
             is_primary=True, auto_id=True,
         ),
         FieldSchema(
-            "player_id", DataType.VARCHAR, max_length=32,
+            "player_id", DataType.VARCHAR, max_length=64,
         ),
         FieldSchema(
             "embedding", DataType.FLOAT_VECTOR,
             dim=EMBEDDING_DIM,
         ),
         FieldSchema(
-            "text", DataType.VARCHAR, max_length=2000,
+            "text", DataType.VARCHAR, max_length=4096,
         ),
         FieldSchema("timestamp", DataType.INT64),
         FieldSchema(
-            "session_id", DataType.VARCHAR, max_length=32,
+            "session_id", DataType.VARCHAR, max_length=64,
         ),
         FieldSchema("importance", DataType.FLOAT),
         FieldSchema(
@@ -80,7 +80,7 @@ def _player_observations_schema() -> CollectionSchema:
             is_primary=True, auto_id=True,
         ),
         FieldSchema(
-            "player_id", DataType.VARCHAR, max_length=32,
+            "player_id", DataType.VARCHAR, max_length=64,
         ),
         FieldSchema(
             "embedding", DataType.FLOAT_VECTOR,
@@ -115,14 +115,14 @@ def _jailbreak_patterns_schema() -> CollectionSchema:
             is_primary=True, auto_id=True,
         ),
         FieldSchema(
-            "player_id", DataType.VARCHAR, max_length=32,
+            "player_id", DataType.VARCHAR, max_length=64,
         ),
         FieldSchema(
             "embedding", DataType.FLOAT_VECTOR,
             dim=EMBEDDING_DIM,
         ),
         FieldSchema(
-            "input_text", DataType.VARCHAR, max_length=2000,
+            "input_text", DataType.VARCHAR, max_length=4096,
         ),
         FieldSchema(
             "category", DataType.VARCHAR, max_length=32,
@@ -152,7 +152,7 @@ def _puzzle_templates_schema() -> CollectionSchema:
             "puzzle_type", DataType.VARCHAR, max_length=32,
         ),
         FieldSchema(
-            "prompt", DataType.VARCHAR, max_length=2000,
+            "prompt", DataType.VARCHAR, max_length=4096,
         ),
         FieldSchema(
             "solution", DataType.VARCHAR, max_length=200,
@@ -203,13 +203,26 @@ class MilvusVectorStore:
         self._client: MilvusClient | None = None
 
     async def initialize(self) -> None:
-        """Open the Milvus Lite database and create collections."""
+        """Open the Milvus Lite database and create collections.
+
+        Each collection gets an AUTOINDEX on the embedding field
+        with COSINE metric for semantic search.
+        """
         self._client = MilvusClient(uri=self._db_path)
+
+        index_params = self._client.prepare_index_params()
+        index_params.add_index(
+            field_name="embedding",
+            index_type="AUTOINDEX",
+            metric_type="COSINE",
+        )
+
         for name, schema_fn in _COLLECTION_SCHEMAS.items():
             if not self._client.has_collection(name):
                 self._client.create_collection(
                     collection_name=name,
                     schema=schema_fn(),
+                    index_params=index_params,
                 )
                 logger.info("Created Milvus collection: %s", name)
             else:

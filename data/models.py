@@ -25,6 +25,9 @@ class PuzzleType(StrEnum):
     WORDPLAY = "wordplay"
     PATTERN = "pattern"
     DEDUCTION = "deduction"
+    MAZE_CLASSIC = "maze_classic"
+    MAZE_DARK = "maze_dark"
+    MAZE_LOGIC = "maze_logic"
 
 
 class RelationshipStage(StrEnum):
@@ -57,8 +60,18 @@ class IntentType(StrEnum):
     PUZZLE_ACTION = "puzzle_action"
     HINT_REQUEST = "hint_request"
     CHAT = "chat"
+    META_GAME = "meta_game"
     JAILBREAK_ATTEMPT = "jailbreak_attempt"
     MIXED = "mixed"
+
+
+class LLMProvider(StrEnum):
+    """LLM provider identifiers."""
+
+    CLAUDE = "claude"
+    OPENAI = "openai"
+    OLLAMA = "ollama"
+    VLLM = "vllm"
 
 
 class ObservationCategory(StrEnum):
@@ -68,6 +81,20 @@ class ObservationCategory(StrEnum):
     REACTION = "reaction"
     PREFERENCE = "preference"
     PERSONALITY = "personality"
+
+
+class FaceSessionState(StrEnum):
+    """States of the face recognition session state machine."""
+
+    IDLE = "idle"
+    SCANNING = "scanning"
+    DETECTED = "detected"
+    RECOGNIZED = "recognized"
+    CONFIRM_NEEDED = "confirm_needed"
+    NEW_PLAYER = "new_player"
+    ENROLLING = "enrolling"
+    SPOOFING_DETECTED = "spoofing_detected"
+    CAMERA_ERROR = "camera_error"
 
 
 class WSMessageType(StrEnum):
@@ -91,6 +118,16 @@ class WSMessageType(StrEnum):
     JAILBREAK_ALERT = "jailbreak:alert"
     SESSION_GREETING = "session:greeting"
     SYSTEM_STATUS = "system:status"
+    MAZE_STATE = "game:maze_state"
+    MAZE_MOVE = "game:maze_move"
+    MAZE_VISIBILITY = "game:maze_visibility"
+
+    # Face session
+    FACE_SESSION_STATE = "face:session_state"
+    FACE_ENROLLMENT_START = "face:enroll_start"
+    FACE_ENROLLMENT_FRAME = "face:enroll_frame"
+    FACE_ENROLLMENT_DONE = "face:enroll_done"
+    FACE_CONFIRM = "face:confirm"
 
 
 class JailbreakCategory(StrEnum):
@@ -116,6 +153,9 @@ class EloRatings(BaseModel):
     wordplay: float = 1200.0
     pattern: float = 1200.0
     deduction: float = 1200.0
+    maze_classic: float = 1200.0
+    maze_dark: float = 1200.0
+    maze_logic: float = 1200.0
 
 
 class PlayerProfile(BaseModel):
@@ -208,17 +248,63 @@ class IntentResult(BaseModel):
     matched_keywords: list[str] = Field(
         default_factory=list
     )
+    extracted_answer: str | None = None
+    extracted_direction: str | None = None
+
+
+class LLMUsage(BaseModel):
+    """Token usage record for a single LLM call."""
+
+    provider: LLMProvider
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    timestamp: float = 0.0
+    correlation_id: str = ""
+
+
+class TokenBudget(BaseModel):
+    """Rate limiting and daily token budget tracker."""
+
+    daily_input_used: int = 0
+    daily_output_used: int = 0
+    daily_input_limit: int = 50_000
+    daily_output_limit: int = 10_000
+    requests_this_minute: int = 0
+    requests_per_minute_limit: int = 10
+    last_reset_minute: float = 0.0
+    last_reset_day: str = ""
 
 
 class FaceDetectionResult(BaseModel):
     """Result from a face-detection / recognition pass."""
 
-    detected: bool = False
+    state: FaceSessionState = FaceSessionState.IDLE
     player_id: str | None = None
+    player_name: str | None = None
     confidence: float = 0.0
-    is_new_player: bool = False
     emotion: str | None = None
-    anti_spoofing_pass: bool = True
+    is_live: bool = True
+    facial_area: dict[str, Any] | None = None
+    embedding_dim: int = 512
+
+
+class FaceEnrollmentResult(BaseModel):
+    """Result of a face enrollment frame capture."""
+
+    player_id: str
+    embeddings_captured: int = 0
+    embeddings_target: int = 5
+    success: bool = False
+
+
+class FaceMatchCandidate(BaseModel):
+    """A potential player match from face recognition."""
+
+    player_id: str
+    player_name: str
+    distance: float
+    confidence: float
 
 
 class JailbreakResult(BaseModel):
@@ -300,6 +386,106 @@ class PuzzleTemplate(BaseModel):
     times_used: int = 0
     avg_solve_time: float = 0.0
     success_rate: float = 0.0
+
+
+# ── Maze Models ─────────────────────────────────────────────────
+
+
+class CellWalls(BaseModel):
+    """Wall state for each side of a maze cell."""
+
+    north: bool = True
+    south: bool = True
+    east: bool = True
+    west: bool = True
+
+
+class MazeCell(BaseModel):
+    """A single cell in a maze grid."""
+
+    x: int
+    y: int
+    walls: CellWalls = Field(default_factory=CellWalls)
+    color: str | None = None
+    has_door: bool = False
+    door_color: str | None = None
+    is_teleporter: bool = False
+    teleport_target: tuple[int, int] | None = None
+    allowed_entry: list[str] = Field(
+        default_factory=list
+    )
+
+
+class MazeRule(BaseModel):
+    """A logic rule active in a MAZE_LOGIC variant."""
+
+    rule_type: str
+    description: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class MazeState(BaseModel):
+    """Complete state of a maze instance."""
+
+    grid: list[list[MazeCell]]
+    width: int
+    height: int
+    start: tuple[int, int]
+    exit: tuple[int, int]
+    player_position: tuple[int, int]
+    visited_cells: list[tuple[int, int]] = Field(
+        default_factory=list
+    )
+    items: dict[str, Any] = Field(
+        default_factory=lambda: {"keys": []}
+    )
+    rules: list[MazeRule] = Field(default_factory=list)
+    move_count: int = 0
+    optimal_path_length: int = 0
+    difficulty_elo: int = 1200
+
+
+class MazeGenerationParams(BaseModel):
+    """Parameters for maze generation."""
+
+    width: int
+    height: int
+    maze_type: PuzzleType
+    target_elo: int = 1200
+    algorithm: str = "auto"
+    max_dead_end_depth: int | None = None
+    num_logic_rules: int = 0
+    num_keys: int = 0
+
+
+class MazeMoveResult(BaseModel):
+    """Result of a player maze move attempt."""
+
+    valid: bool
+    new_position: tuple[int, int]
+    reason: str | None = None
+    reached_exit: bool = False
+    visible_cells: list[tuple[int, int]] = Field(
+        default_factory=list
+    )
+    items_collected: list[str] = Field(
+        default_factory=list
+    )
+    move_count: int = 0
+    score: float | None = None
+    elo_delta: float | None = None
+    new_elo: float | None = None
+
+
+class MazeHint(BaseModel):
+    """Maze-specific hint data for the 5-tier system."""
+
+    tier: int
+    direction_bias: str | None = None
+    wrong_directions: list[str] | None = None
+    reveal_cells: list[tuple[int, int]] | None = None
+    flash_path: list[tuple[int, int]] | None = None
+    auto_move_steps: list[tuple[int, int]] | None = None
 
 
 # ── WebSocket Models ────────────────────────────────────────────

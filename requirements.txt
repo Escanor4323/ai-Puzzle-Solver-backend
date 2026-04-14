@@ -6,15 +6,16 @@ pydantic>=2.0
 pydantic-settings>=2.0
 
 # ── AI — Face Recognition ──────────────────────────────
-deepface>=0.0.93                    # GhostFaceNet recognition + emotion
+# deepface v0.0.99 is vendored at vendor/deepface/ (extracted from tarball)
+# Install via: pip install ./vendor/deepface  (handled in Dockerfile)
 opencv-python-headless>=4.10.0
-mediapipe>=0.10.0                   # Fast face detection (<10ms)
 tf-keras                            # DeepFace dependency (lightweight)
+# mediapipe is a transitive dep of DeepFace (detector_backend="mediapipe")
 
 # ── AI — LLM Providers ─────────────────────────────────
 # openai client talks to Claude (via Anthropic), GPT-4o, AND Ollama
-anthropic>=0.40.0                   # Claude Sonnet (conversation)
-openai>=1.30.0                      # GPT-4o (puzzle gen) + Ollama (extraction)
+anthropic>=0.80.0                   # Claude Sonnet (conversation)
+openai>=1.50.0                      # GPT-4o (puzzle gen) + Ollama (extraction)
 
 # ── AI — Jailbreak Detection ──────────────────────────
 onnxruntime>=1.17.0                 # DeBERTa + DistilBERT local inference
@@ -42,6 +43,14 @@ cryptography>=43.0.0
 pillow>=10.0.0
 numpy>=1.26.0
 python-dotenv>=1.0.0
+
+# ── Build & Packaging (production only) ───────────────
+# cython>=3.0.0                     # Compile security modules to .so
+# setuptools>=70.0.0                # Required by Cython build
+# pyinstaller>=6.0.0                # Single-folder macOS bundle
+
+# ── TTS — Edge neural TTS ──────────────────────────────
+edge-tts>=6.0.0                     # Microsoft Edge TTS — sub-second synthesis, no GPU/model needed
 
 # ── Testing ────────────────────────────────────────────
 pytest>=8.0.0

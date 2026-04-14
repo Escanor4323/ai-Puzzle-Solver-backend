@@ -22,8 +22,13 @@ class Settings(BaseSettings):
 
     # ── Paths ───────────────────────────────────────────────
     DATA_DIR: Path = Path("data")
-    MILVUS_DB_PATH: str = "data/puzzlemind_milvus.db"
+    MILVUS_DB_PATH: str = "http://localhost:19530"
     KNOWLEDGE_DIR: Path = Path("data/knowledge")
+
+    # ── LLM Provider Selection ──────────────────────────────
+    # Controls which provider handles player-facing conversation.
+    # Accepted values: "claude" | "vllm"
+    LLM_PROVIDER: str = "claude"
 
     # ── Anthropic / Claude ──────────────────────────────────
     ANTHROPIC_API_KEY: str = ""
@@ -31,6 +36,14 @@ class Settings(BaseSettings):
     LLM_HAIKU_MODEL: str = "claude-haiku-4-5-20251001"
     LLM_MAX_TOKENS: int = 4096
     LLM_TEMPERATURE: float = 0.7
+
+    # ── vLLM (OpenAI-compatible self-hosted) ────────────────
+    # Point VLLM_BASE_URL at a running vLLM server, e.g.:
+    #   python -m vllm.entrypoints.openai.api_server --model <name>
+    VLLM_BASE_URL: str = "http://localhost:8000/v1"
+    VLLM_MODEL: str = "meta-llama/Llama-3.1-8B-Instruct"
+    VLLM_MAX_TOKENS: int = 4096
+    VLLM_API_KEY: str = "EMPTY"  # vLLM accepts any non-empty string
 
     # ── OpenAI / GPT-4o ─────────────────────────────────────
     OPENAI_API_KEY: str = ""
@@ -51,12 +64,19 @@ class Settings(BaseSettings):
 
     # ── Face Recognition ────────────────────────────────────
     FACE_RECOGNITION_MODEL: str = "GhostFaceNet"
-    FACE_DETECTOR: str = "mediapipe"
-    FACE_HIGH_CONFIDENCE: float = 0.4
-    FACE_MEDIUM_CONFIDENCE: float = 0.6
+    FACE_DETECTOR_BACKEND: str = "mediapipe"
+    FACE_DISTANCE_METRIC: str = "cosine"
+    FACE_MATCH_THRESHOLD_HIGH: float = 0.30
+    FACE_MATCH_THRESHOLD_MEDIUM: float = 0.45
     FACE_MAX_EMBEDDINGS_PER_PLAYER: int = 20
-    CAMERA_ACTIVE_INTERVAL_MS: int = 500
-    CAMERA_IDLE_INTERVAL_MS: int = 2000
+    FACE_ANTI_SPOOFING: bool = True
+    FACE_RECOGNITION_CONFIRM_FRAMES: int = 3
+    FACE_LOST_FRAMES: int = 10
+    FACE_ENROLLMENT_TARGET: int = 5
+    FACE_ENROLLMENT_MINIMUM: int = 3
+    FACE_EMOTION_EVERY_N_FRAMES: int = 5
+    FACE_FRAME_INTERVAL_ACTIVE_MS: int = 500
+    FACE_FRAME_INTERVAL_IDLE_MS: int = 2000
 
     # ── Embeddings (BGE-M3) ─────────────────────────────────
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
@@ -64,6 +84,9 @@ class Settings(BaseSettings):
 
     # ── Jailbreak Detection ─────────────────────────────────
     JAILBREAK_SIMILARITY_THRESHOLD: float = 0.85
+    JAILBREAK_DEBERTA_MODEL: str = (
+        "protectai/deberta-v3-base-prompt-injection-v2"
+    )
 
     # ── Emotion Analysis ────────────────────────────────────
     SENTIMENT_MODEL: str = (
@@ -72,8 +95,10 @@ class Settings(BaseSettings):
 
     # ── Memory & Forgetting ─────────────────────────────────
     IMMEDIATE_MEMORY_TURNS: int = 10
-    SHORT_TERM_SUMMARY_INTERVAL: int = 5
+    SHORT_TERM_SUMMARY_INTERVAL: int = 6
     SHORT_TERM_MAX_WORDS: int = 500
+    MEMORY_SUMMARIZE_EVERY_N_TURNS: int = 6
+    MEMORY_MAX_CONTEXT_TOKENS: int = 2000
     FORGETTING_LAMBDA: float = 0.16
 
     # ── Elo System ──────────────────────────────────────────

@@ -45,6 +45,18 @@ class WSMessageType(StrEnum):
     SESSION_GREETING = "session:greeting"
     SYSTEM_STATUS = "system:status"
 
+    # Maze-specific
+    MAZE_STATE = "game:maze_state"
+    MAZE_MOVE = "game:maze_move"
+    MAZE_VISIBILITY = "game:maze_visibility"
+
+    # Face session
+    FACE_SESSION_STATE = "face:session_state"
+    FACE_ENROLLMENT_START = "face:enroll_start"
+    FACE_ENROLLMENT_FRAME = "face:enroll_frame"
+    FACE_ENROLLMENT_DONE = "face:enroll_done"
+    FACE_CONFIRM = "face:confirm"
+
 
 @dataclass
 class WSMessage:

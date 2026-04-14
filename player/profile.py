@@ -72,3 +72,16 @@ class PlayerManager:
             Unique player identifier.
         """
         pass
+
+    async def get_all_player_names(self) -> dict[str, str]:
+        """Return display names for all players.
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping of player_id to display_name.
+        """
+        # In full implementation (Phase 2), queries the database:
+        # rows = await db.fetch_all("SELECT id, display_name FROM players")
+        # return {row["id"]: row["display_name"] for row in rows}
+        return {}

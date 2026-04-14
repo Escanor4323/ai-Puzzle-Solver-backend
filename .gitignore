@@ -17,7 +17,7 @@ env/
 .env
 
 # ── Runtime Data ───────────────────────────────────────
-data/*.db
+*.db
 data/chroma/
 data/knowledge/
 

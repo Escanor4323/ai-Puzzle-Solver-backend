@@ -19,10 +19,76 @@ Background (after response):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from events.bus import EventBus
+
+logger = logging.getLogger(__name__)
+
+
+# ── Face Event Handlers ──────────────────────────────────────
+
+
+async def on_face_recognized(data: dict[str, Any]) -> None:
+    """Handle face recognition event.
+
+    Starts or resumes a player session when a face is recognized.
+    Updates last_seen timestamp and loads game state.
+
+    Parameters
+    ----------
+    data : dict
+        {"player_id": str, "player_name": str, "confidence": float}
+    """
+    player_id = data.get("player_id", "")
+    player_name = data.get("player_name", "Unknown")
+    logger.info(
+        "Face recognized: %s (%s)", player_name, player_id
+    )
+    # In full wiring (Phase 2):
+    # await session_manager.start_session(player_id)
+    # await player_manager.update_last_seen(player_id)
+    # await game_engine.load_or_create_state(player_id)
+    # Send session:greeting via WebSocket
+
+
+async def on_face_lost(data: dict[str, Any]) -> None:
+    """Handle face lost event.
+
+    Ends the current session when the player leaves the camera.
+
+    Parameters
+    ----------
+    data : dict
+        Empty dict or {"player_id": str}
+    """
+    logger.info("Face lost — ending session")
+    # In full wiring (Phase 2):
+    # await memory_manager.on_session_end(session_id)
+    # await session_manager.end_session(session_id)
+    # Send session:ended via WebSocket
+
+
+async def on_face_emotion(data: dict[str, Any]) -> None:
+    """Handle face emotion event.
+
+    Records facial emotion in the emotion analyzer for composite
+    emotional state tracking.
+
+    Parameters
+    ----------
+    data : dict
+        {"player_id": str, "emotion": str}
+    """
+    player_id = data.get("player_id", "")
+    emotion = data.get("emotion", "neutral")
+    logger.debug(
+        "Face emotion for %s: %s", player_id, emotion
+    )
+    # In full wiring (Phase 2):
+    # emotion_analyzer.record_face_emotion(player_id, emotion, 1.0)
 
 
 def register_all_handlers(bus: "EventBus") -> None:
@@ -36,18 +102,18 @@ def register_all_handlers(bus: "EventBus") -> None:
     bus : EventBus
         The application event bus instance.
     """
+    # ── Face Engine Events ──────────────────────────────
+    bus.on("face:recognized", on_face_recognized)
+    bus.on("face:lost", on_face_lost)
+    bus.on("face:emotion", on_face_emotion)
+
     # ── Pre-processing (parallel on every message) ──────
     # bus.on("chat:message", jailbreak_detector.check_input)
     # bus.on("chat:message", emotion_analyzer.analyze_text)
     # bus.on("chat:message", jailbreak_detector.similarity_precheck)
 
-    # ── Face Engine Events ──────────────────────────────
-    # bus.on("camera:frame", face_engine.process_frame)
-
     # ── Session Manager Events ──────────────────────────
-    # bus.on("face:recognized", session_manager.on_recognized)
-    # bus.on("face:new", session_manager.on_new_player)
-    # bus.on("face:lost", session_manager.on_face_lost)
+    # (face:recognized and face:lost handlers above replace these)
 
     # ── LLM Orchestrator Events ─────────────────────────
     # bus.on("chat:message", llm_orchestrator.on_message)
@@ -71,5 +137,3 @@ def register_all_handlers(bus: "EventBus") -> None:
 
     # ── Elo System Events ──────────────────────────────
     # bus.on("game:puzzle_complete", elo_system.on_complete)
-
-    pass  # Wiring happens during Phase 2
