@@ -16,11 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Layer 1: PyTorch (sentence-transformers pulls it anyway; pin CPU wheel) ──
-# Install CPU-only torch to avoid ~1 GB of CUDA libraries in the image
-# torch>=2.4.0 required by sentence-transformers>=3.0 and transformers>=4.40
+# ── Layer 1: PyTorch + torchvision (pin both from CPU wheel to prevent downgrade) ──
+# fer → facenet-pytorch → torchvision; without pinning torchvision here, pip
+# picks torchvision==0.17.2 from PyPI which requires torch==2.2.2 and downgrades.
+# torchvision>=0.19.0 is compatible with torch>=2.4.0.
 RUN pip install --no-cache-dir \
-        "torch>=2.4.0" --index-url https://download.pytorch.org/whl/cpu
+        "torch>=2.4.0" "torchvision>=0.19.0" --index-url https://download.pytorch.org/whl/cpu
 
 # ── Layer 2: Sentence-transformers + HuggingFace stack ───────────────────────
 RUN pip install --no-cache-dir \
