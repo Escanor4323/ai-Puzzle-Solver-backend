@@ -756,6 +756,19 @@ async def route_message_async(
     dict[str, Any] | None
         Response message or None.
     """
+    # ── Session initialization ─────────────────────────────────
+    if message_type == "system:init":
+        # Frontend sends this immediately on connect.
+        # Respond with a greeting so sessionActive is set on the client.
+        return {
+            "type": "session:greeting",
+            "payload": {
+                "player_id": "anonymous",
+                "player_name": "",
+                "message": "Welcome to PuzzleMind! Say hello to get started.",
+            },
+        }
+
     # ── Lightweight emotion-only camera (background tracking) ──
     if message_type == "camera:emotion":
         if not face_processor or not executor:
@@ -1088,19 +1101,34 @@ async def route_message_async(
             or payload.get("emotional_state", "neutral")
         )
 
-        await message_pipeline.process_message(
-            player_id=player_id,
-            message=text,
-            on_token=_on_token,
-            on_complete=_on_complete,
-            player_name=payload.get("player_name", ""),
-            emotional_state=emotional_state,
-            relationship_stage=payload.get(
-                "relationship_stage", "early"
-            ),
-            player_memory=payload.get("player_memory", ""),
-            face_description=face_description,
+        logger.info(
+            "[chat] Starting pipeline for player=%s text=%r",
+            player_id, text[:80],
         )
+        try:
+            await message_pipeline.process_message(
+                player_id=player_id,
+                message=text,
+                on_token=_on_token,
+                on_complete=_on_complete,
+                player_name=payload.get("player_name", ""),
+                emotional_state=emotional_state,
+                relationship_stage=payload.get(
+                    "relationship_stage", "early"
+                ),
+                player_memory=payload.get("player_memory", ""),
+                face_description=face_description,
+            )
+            logger.info("[chat] Pipeline completed for player=%s", player_id)
+        except Exception as _pipe_exc:
+            import traceback as _tb
+            logger.error(
+                "[chat] Pipeline raised an exception for player=%s: %s\n%s",
+                player_id, _pipe_exc, _tb.format_exc(),
+            )
+            _err_msg = "Something went wrong — please try again."
+            await _on_token(_err_msg)
+            await _on_complete(_err_msg, {})
         # Response already streamed via callbacks
         return None
 

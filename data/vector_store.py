@@ -496,14 +496,20 @@ class MilvusVectorStore:
         list[dict[str, Any]]
             Similar attacks above the threshold.
         """
-        results = self._client.search(
-            collection_name=JAILBREAK_PATTERNS,
-            data=[query_embedding],
-            limit=n_results,
-            output_fields=[
-                "input_text", "category", "severity",
-            ],
-        )
+        import asyncio
+        loop = asyncio.get_running_loop()
+
+        def _search() -> list:
+            return self._client.search(
+                collection_name=JAILBREAK_PATTERNS,
+                data=[query_embedding],
+                limit=n_results,
+                output_fields=[
+                    "input_text", "category", "severity",
+                ],
+            )
+
+        results = await loop.run_in_executor(None, _search)
         if not results:
             return []
         # Filter by threshold (Milvus returns distance,

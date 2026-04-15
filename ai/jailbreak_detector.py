@@ -16,7 +16,7 @@ import logging
 import random
 import secrets
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from ai.embedding_engine import EmbeddingEngine
@@ -69,28 +69,34 @@ _PLAYFUL_RESPONSES = {
 # ── Static DeBERTa Classifier ─────────────────────────────────
 
 
-def _classify_sync(text: str) -> dict[str, Any]:
-    """Run DeBERTa jailbreak classification in a separate process.
+# Module-level cache for the DeBERTa classifier — loaded once on first call.
+_deberta_classifier: Any = None
 
-    This is a module-level function so it can be pickled for
-    ProcessPoolExecutor.
+
+def _classify_sync(text: str) -> dict[str, Any]:
+    """Run DeBERTa jailbreak classification in a background thread.
+
+    The classifier is loaded once and cached at module level to avoid
+    reloading the model on every call.
 
     Returns
     -------
     dict
         {"is_injection": bool, "score": float, "label": str}
     """
+    global _deberta_classifier
     try:
-        from transformers import pipeline
+        if _deberta_classifier is None:
+            from transformers import pipeline
 
-        classifier = pipeline(
-            "text-classification",
-            model="protectai/deberta-v3-base-prompt-injection-v2",
-            truncation=True,
-            max_length=512,
-            device="cpu",
-        )
-        result = classifier(text)[0]
+            _deberta_classifier = pipeline(
+                "text-classification",
+                model="protectai/deberta-v3-base-prompt-injection-v2",
+                truncation=True,
+                max_length=512,
+                device="cpu",
+            )
+        result = _deberta_classifier(text)[0]
         label = result.get("label", "SAFE")
         score = result.get("score", 0.0)
 
@@ -132,8 +138,10 @@ class JailbreakDetector:
         self._embed = embedding_engine
         self._config = config
 
-        # DeBERTa — loaded lazily in ProcessPoolExecutor
-        self._executor = ProcessPoolExecutor(max_workers=1)
+        # DeBERTa — loaded lazily in ThreadPoolExecutor.
+        # ThreadPoolExecutor avoids the fork-deadlock that ProcessPoolExecutor
+        # causes when spawning after asyncio has started (common in Docker).
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="deberta")
 
         # Session-specific hardening
         self._session_salt = secrets.token_hex(8)
@@ -173,7 +181,12 @@ class JailbreakDetector:
             Classification result with severity, category, and action.
         """
         # Layer 0 — Milvus similarity pre-check
-        embedding = self._embed.embed_text(text)
+        # Run CPU-bound embedding in thread pool to avoid blocking the event loop.
+        import asyncio
+        loop = asyncio.get_running_loop()
+        embedding = await loop.run_in_executor(
+            self._executor, self._embed.embed_text, text
+        )
         similar = await self._vs.search_similar_attacks(
             embedding,
             threshold=self._config.JAILBREAK_SIMILARITY_THRESHOLD,
@@ -211,14 +224,15 @@ class JailbreakDetector:
                 ),
             )
 
-        # Layer 1 — DeBERTa local classifier
+        # Layer 1 — DeBERTa local classifier (60s timeout covers cold model load)
         try:
-            import asyncio
-
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                self._executor, _classify_sync, text
+            result = await asyncio.wait_for(
+                loop.run_in_executor(self._executor, _classify_sync, text),
+                timeout=60.0,
             )
+        except asyncio.TimeoutError:
+            logger.warning("DeBERTa classification timed out — skipping")
+            result = {"is_injection": False, "score": 0.0, "label": "TIMEOUT"}
         except Exception as e:
             logger.warning("DeBERTa executor failed: %s", e)
             result = {
