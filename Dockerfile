@@ -43,7 +43,11 @@ RUN pip install --no-cache-dir /tmp/deepface \
     && rm -rf /tmp/deepface
 
 # ── Layer 6: Remaining application dependencies ──────────────────────────────
+# --extra-index-url ensures pip can resolve torchvision from the CPU wheel index
+# so fer→facenet-pytorch→torchvision gets 0.26.0+cpu (compat with torch>=2.4)
+# instead of torchvision-0.17.2 from PyPI (which requires torch==2.2.2).
 RUN pip install --no-cache-dir \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
         fastapi>=0.115.0 \
         uvicorn[standard]>=0.30.0 \
         websockets>=13.0 \
@@ -62,6 +66,11 @@ RUN pip install --no-cache-dir \
         fer>=22.5.1 \
         pytest>=8.0.0 \
         httpx>=0.27.0
+
+# ── Layer 6b: Force-pin torch/torchvision in case any dep downgraded them ────
+# Safety net: runs after all pip installs so it always has the final say.
+RUN pip install --no-cache-dir --force-reinstall \
+        "torch>=2.4.0" "torchvision>=0.19.0" --index-url https://download.pytorch.org/whl/cpu
 
 # ── Layer 7: Pre-bake CV face models from GitHub Release ─────────────────────
 # DeepFace resolves weights as {DEEPFACE_HOME}/.deepface/weights/
