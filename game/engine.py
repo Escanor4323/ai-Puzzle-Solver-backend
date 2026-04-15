@@ -104,7 +104,7 @@ class GameEngine:
         """Set a new puzzle as the active puzzle for a player."""
         state = self.load_or_create_state(player_id)
         state["has_active_puzzle"] = True
-        state["puzzle_type"] = puzzle.get("puzzle_type", "riddle")
+        state["puzzle_type"] = puzzle.get("puzzle_type", "maze_classic")
         state["current_puzzle"] = puzzle
         state["attempts"] = 0
         state["hints_given"] = 0

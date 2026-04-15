@@ -1148,7 +1148,7 @@ async def route_message_async(
             llm_orchestrator.puzzle_generation_available() if llm_orchestrator else False,
         )
 
-        if action == "new_puzzle" and puzzle_type.startswith("maze"):
+        if action == "new_puzzle":
             from data.models import PuzzleType
 
             type_map = {
@@ -1164,7 +1164,7 @@ async def route_message_async(
                 target_elo = game_engine.get_intention_run_elo(player_id)
             else:
                 target_elo = int(elo_ratings.get(puzzle_type, 1200))
-            maze = game_engine.start_maze(player_id, pt, target_elo=target_elo)
+            game_engine.start_maze(player_id, pt, target_elo=target_elo)
             render_data = game_engine.get_maze_render_data(player_id)
             diff_label = game_engine.difficulty_label(target_elo)
 
@@ -1177,106 +1177,6 @@ async def route_message_async(
                     **render_data,
                 },
             }
-
-        # Non-maze puzzle types — generate via LLM
-        if llm_orchestrator and llm_orchestrator.puzzle_generation_available():
-            # Adaptive difficulty + dedup
-            difficulty = game_engine.get_adaptive_difficulty(player_id)
-            seen_themes = game_engine.get_seen_themes(player_id)
-
-            # Build richer player context
-            state = game_engine.get_state_for_prompt(player_id)
-            score = state.get("score", 0)
-            ai_score = state.get("ai_score", 0)
-            streak = state.get("streak", 0)
-            total = state.get("total_solved", 0)
-            player_ctx = (
-                f"Player: {player_id}. "
-                f"Score: {score}-{ai_score} (player-AI). "
-                f"Streak: {streak}. Total solved: {total}. "
-                f"Make this puzzle COMPLETELY DIFFERENT from previous ones."
-            )
-
-            logger.info(
-                "[game:action] Generating %s puzzle (difficulty=%d) for player=%s",
-                puzzle_type, difficulty, player_id,
-            )
-            puzzle_data = await llm_orchestrator.generate_puzzle_json(
-                puzzle_type=puzzle_type,
-                difficulty=difficulty,
-                player_context=player_ctx,
-                avoid_similar_to=seen_themes[-8:] if seen_themes else None,
-            )
-            if puzzle_data:
-                logger.info(
-                    "[game:action] Puzzle generated successfully: type=%s",
-                    puzzle_type,
-                )
-                # Store puzzle in game engine (with solution — server-side)
-                puzzle_data["puzzle_type"] = puzzle_type
-                game_engine.set_puzzle(player_id, puzzle_data)
-
-                # Get timer from game state
-                state = game_engine.get_state_for_prompt(player_id)
-                timer = state.get("timer_seconds", 120)
-
-                # Store puzzle start in memory
-                if memory_manager:
-                    import asyncio
-                    event = (
-                        f"New {puzzle_type} puzzle started (difficulty {puzzle_data.get('difficulty', 2)}): "
-                        f"{puzzle_data.get('prompt', '')[:100]}"
-                    )
-                    asyncio.create_task(
-                        memory_manager.store_game_event(
-                            player_id, event,
-                            importance=0.7,
-                            category="preference",
-                        )
-                    )
-
-                puzzle_diff = puzzle_data.get("difficulty", 2)
-                # Convert 1-5 difficulty scale to approximate ELO for label
-                _diff_elo_map = {1: 800, 2: 1000, 3: 1200, 4: 1400, 5: 1600}
-                puzzle_diff_label = game_engine.difficulty_label(
-                    _diff_elo_map.get(puzzle_diff, 1200)
-                )
-
-                return {
-                    "type": "game:puzzle_new",
-                    "payload": {
-                        "puzzle_type": puzzle_type,
-                        "prompt": puzzle_data.get("prompt", "Solve this puzzle!"),
-                        # Do NOT send solution to frontend
-                        "hints": puzzle_data.get("hints", []),
-                        "difficulty": puzzle_diff,
-                        "difficulty_label": puzzle_diff_label,
-                        "category": puzzle_data.get("category", puzzle_type),
-                        "timer_seconds": timer,
-                        "max_hints": len(puzzle_data.get("hints", [])) or 3,
-                    },
-                }
-
-        # Fallback if no LLM provider available or generation failed
-        logger.error(
-            "[game:action] Puzzle generation failed for type=%s. "
-            "llm_orchestrator=%s available=%s",
-            puzzle_type,
-            bool(llm_orchestrator),
-            llm_orchestrator.puzzle_generation_available() if llm_orchestrator else False,
-        )
-        return {
-            "type": "game:puzzle_new",
-            "payload": {
-                "puzzle_type": puzzle_type,
-                "prompt": (
-                    f"The puzzle generator hit a snag for '{puzzle_type}'. "
-                    f"Check server logs — likely no LLM API key (ANTHROPIC_API_KEY / "
-                    f"OPENAI_API_KEY) is configured or all providers timed out."
-                ),
-                "timer_seconds": 120,
-            },
-        }
 
     elif message_type == "puzzle:answer":
         if not game_engine:

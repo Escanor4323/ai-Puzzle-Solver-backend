@@ -20,11 +20,6 @@ from pydantic import BaseModel, Field
 class PuzzleType(StrEnum):
     """Supported puzzle categories."""
 
-    RIDDLE = "riddle"
-    LOGIC = "logic"
-    WORDPLAY = "wordplay"
-    PATTERN = "pattern"
-    DEDUCTION = "deduction"
     MAZE_CLASSIC = "maze_classic"
     MAZE_DARK = "maze_dark"
     MAZE_LOGIC = "maze_logic"
@@ -148,11 +143,6 @@ class JailbreakCategory(StrEnum):
 class EloRatings(BaseModel):
     """Per-category Elo ratings for a player."""
 
-    riddle: float = 1200.0
-    logic: float = 1200.0
-    wordplay: float = 1200.0
-    pattern: float = 1200.0
-    deduction: float = 1200.0
     maze_classic: float = 1200.0
     maze_dark: float = 1200.0
     maze_logic: float = 1200.0
