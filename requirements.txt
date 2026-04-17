@@ -25,7 +25,8 @@ transformers>=4.40.0
 sentence-transformers>=3.0.0        # BGE-M3 (1024-dim, local)
 
 # ── Vector Database ────────────────────────────────────
-pymilvus>=2.4.0                     # Milvus Lite (local file, no server)
+pymilvus>=2.4.0                     # Milvus vector client
+milvus-lite>=2.4.0                  # Enables local file mode (uri="/tmp/milvus.db")
 
 # ── Knowledge Graph ────────────────────────────────────
 networkx>=3.3
