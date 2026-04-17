@@ -450,8 +450,14 @@ class ConnectionManager:
             JSON-serialisable message dict.
         """
         ws = self._connections.get(connection_id)
-        if ws:
+        if ws is None:
+            return
+        try:
             await ws.send_json(message)
+        except (RuntimeError, Exception):
+            # Socket already closed — remove the stale entry so future
+            # sends don't keep hitting a dead connection.
+            self._connections.pop(connection_id, None)
 
     async def broadcast(
         self, message: dict[str, Any]
@@ -463,8 +469,14 @@ class ConnectionManager:
         message : dict[str, Any]
             JSON-serialisable message dict.
         """
-        for ws in self._connections.values():
-            await ws.send_json(message)
+        dead: list[str] = []
+        for cid, ws in self._connections.items():
+            try:
+                await ws.send_json(message)
+            except (RuntimeError, Exception):
+                dead.append(cid)
+        for cid in dead:
+            self._connections.pop(cid, None)
 
 
 async def fire_event_comment(
