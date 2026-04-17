@@ -136,7 +136,8 @@ jobs:
 
       - name: Update image tag in deployment manifest
         run: |
-          NEW_TAG="${{ env.IMAGE_NAME }}-${{ github.sha }}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          NEW_TAG="${{ env.IMAGE_NAME }}-gpu-${SHORT_SHA}"
           NEW_IMAGE="${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_REPO }}:${NEW_TAG}"
 
           echo "Updating image to: ${NEW_IMAGE}"
