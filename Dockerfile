@@ -107,7 +107,12 @@ COPY --chown=1001:0 . .
 ENV HF_HOME=/tmp/hf_cache \
     TORCH_HOME=/tmp/torch_cache \
     TRANSFORMERS_CACHE=/tmp/hf_cache \
-    SENTENCE_TRANSFORMERS_HOME=/tmp/hf_cache
+    SENTENCE_TRANSFORMERS_HOME=/tmp/hf_cache \
+    # This image has no CUDA runtime — tell TensorFlow explicitly so it
+    # skips the GPU probe entirely and doesn't spam CUDA error messages.
+    CUDA_VISIBLE_DEVICES=-1 \
+    TF_CPP_MIN_LOG_LEVEL=3 \
+    TF_ENABLE_ONEDNN_OPTS=0
 
 # ── Switch to non-root user ───────────────────────────────────────────────────
 USER 1001
