@@ -29,7 +29,11 @@ RUN pip install --no-cache-dir \
         transformers>=4.40.0
 
 # ── Layer 3: TensorFlow / Keras (DeepFace backend) ───────────────────────────
+# Install tensorflow-cpu explicitly before tf-keras so pip resolves the CPU
+# variant instead of the GPU-probing full tensorflow package. tensorflow-cpu
+# has no CUDA stub loader, which eliminates the pre-init CUDA noise entirely.
 RUN pip install --no-cache-dir \
+        tensorflow-cpu \
         tf-keras
 
 # ── Layer 4: CV + inference runtime ──────────────────────────────────────────
